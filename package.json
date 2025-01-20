@@ -1,0 +1,46 @@
+{
+	"author": {
+		"name": "Baptiste Pillot",
+		"email": "baptiste@pillot.fr"
+	},
+	"dependencies": {
+		"@fastify/session": "^11.0",
+		"fastify": "~5.2"
+	},
+	"description": "",
+	"devDependencies": {
+		"@types/node": "^22.10",
+		"typescript": "^5.6"
+	},
+	"engines": {
+		"node": ">=18"
+	},
+	"exports": {
+		"import": "./esm/fastify-file-session-store.js",
+		"require": "./cjs/fastify-file-session-store.js"
+	},
+	"files": [
+		"LICENSE",
+		"README.md",
+		"*/*.d.ts",
+		"*/*.js"
+	],
+	"homepage": "https://it.rocks",
+	"keywords": [
+		"backend",
+		"it.rocks"
+	],
+	"license": "ISC",
+	"name": "@itrocks/fastify-file-session-store",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/itrocks-ts/fastify-file-session-store.git"
+	},
+	"scripts": {
+		"build": "npm run build:cjs && npm run build:esm",
+		"build:cjs": "tsc -p tsconfig.cjs.json",
+		"build:esm": "tsc -p tsconfig.esm.json"
+	},
+	"types": "./esm/fastify-file-session-store.d.ts",
+	"version": "0.0.1"
+}
