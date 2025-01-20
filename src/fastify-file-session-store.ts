@@ -4,6 +4,7 @@ import { readFile, unlink, writeFile } from 'fs/promises'
 
 const cache: Record<string, Session> = {}
 
+export { FileStore }
 export default class FileStore implements SessionStore
 {
 
