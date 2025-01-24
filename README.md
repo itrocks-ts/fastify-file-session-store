@@ -5,3 +5,5 @@
 [![discord](https://img.shields.io/discord/1314141024020467782?color=7289da&label=discord&logo=discord&logoColor=white)](https://25.re/ditr)
 
 # fastify-file-session-store
+
+Simple session data persistence for Fastify using JSON files.
