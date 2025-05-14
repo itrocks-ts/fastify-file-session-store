@@ -5,7 +5,7 @@
 	},
 	"dependencies": {
 		"@fastify/session": "^11.0",
-		"fastify": "~5.2"
+		"fastify": "^5.3"
 	},
 	"description": "Simple session data persistence for Fastify using JSON files",
 	"devDependencies": {
@@ -42,5 +42,5 @@
 		"build:esm": "tsc -p tsconfig.esm.json"
 	},
 	"types": "./esm/fastify-file-session-store.d.ts",
-	"version": "0.0.8"
+	"version": "0.0.9"
 }
