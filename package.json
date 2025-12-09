@@ -4,13 +4,13 @@
 		"email": "baptiste@pillot.fr"
 	},
 	"dependencies": {
-		"@fastify/session": "^11.0",
-		"fastify": "^5.3"
+		"@fastify/session": "^11.1",
+		"fastify": "^5.6"
 	},
 	"description": "Simple session data persistence for Fastify using JSON files",
 	"devDependencies": {
-		"@types/node": "^22.10",
-		"typescript": "~5.8"
+		"@types/node": "^24.10",
+		"typescript": "~5.9"
 	},
 	"engines": {
 		"node": ">=18"
@@ -42,5 +42,5 @@
 		"build:esm": "tsc -p tsconfig.esm.json"
 	},
 	"types": "./esm/fastify-file-session-store.d.ts",
-	"version": "0.0.9"
+	"version": "0.0.10"
 }
