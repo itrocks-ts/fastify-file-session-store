@@ -28,7 +28,15 @@
 	"homepage": "https://it.rocks",
 	"keywords": [
 		"backend",
-		"it.rocks"
+		"fastify",
+		"fastify-plugin",
+		"file",
+		"file-store",
+		"it.rocks",
+		"plugin",
+		"session",
+		"session-store",
+		"store"
 	],
 	"license": "ISC",
 	"name": "@itrocks/fastify-file-session-store",
@@ -42,5 +50,5 @@
 		"build:esm": "tsc -p tsconfig.esm.json"
 	},
 	"types": "./esm/fastify-file-session-store.d.ts",
-	"version": "0.0.10"
+	"version": "0.0.11"
 }
