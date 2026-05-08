@@ -1,6 +1,8 @@
-import { SessionStore }                from '@fastify/session'
-import { Session }                     from 'fastify'
-import { readFile, unlink, writeFile } from 'fs/promises'
+import { SessionStore } from '@fastify/session'
+import { Session }      from 'fastify'
+import { readFile }     from 'node:fs/promises'
+import { unlink }       from 'node:fs/promises'
+import { writeFile }    from 'node:fs/promises'
 
 const cache: Record<string, Session> = {}
 
