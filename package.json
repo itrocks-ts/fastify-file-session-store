@@ -10,7 +10,7 @@
 	"description": "Simple session data persistence for Fastify using JSON files",
 	"devDependencies": {
 		"@types/node": "^24.10",
-		"typescript": "^6.0"
+		"typescript": "^7.0"
 	},
 	"engines": {
 		"node": ">=24"
@@ -44,5 +44,5 @@
 	"scripts": {
 		"build": "tsc"
 	},
-	"version": "0.1.0"
+	"version": "0.1.1"
 }
