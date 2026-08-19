@@ -1,5 +1,7 @@
 import { SessionStore } from '@fastify/session'
 import { Session }      from 'fastify'
+import { chmod }        from 'node:fs/promises'
+import { mkdir }        from 'node:fs/promises'
 import { readFile }     from 'node:fs/promises'
 import { unlink }       from 'node:fs/promises'
 import { writeFile }    from 'node:fs/promises'
@@ -24,9 +26,12 @@ export class FileStore implements SessionStore
 			return callback()
 		}
 		cache[sessionId] = session
-		writeFile(this.sessionFile(sessionId), JSON.stringify(session), 'utf8')
+		mkdir(this.directory, { mode: 0o700, recursive: true })
+			.then(() => chmod(this.directory, 0o700))
+			.then(() => writeFile(this.sessionFile(sessionId), JSON.stringify(session), { encoding: 'utf8', mode: 0o600 }))
+			.then(() => chmod(this.sessionFile(sessionId), 0o600))
 			.then(callback)
-			.catch(error => { console.error(sessionId, 'set:', error); callback(error) })
+			.catch(() => callback(new Error('Unable to persist the session')))
 	}
 
 	get(sessionId: string, callback: (error: any, session?: Session | null) => void)
@@ -47,8 +52,7 @@ export class FileStore implements SessionStore
 				try {
 					session = JSON.parse(stringData)
 				}
-				catch (exception) {
-					console.warn(sessionId, 'get:', exception)
+				catch {
 					return callback(null)
 				}
 				cache[sessionId] = session
@@ -62,7 +66,10 @@ export class FileStore implements SessionStore
 		delete cache[sessionId]
 		unlink(this.sessionFile(sessionId))
 			.then(callback)
-			.catch(error => { console.error(sessionId, 'destroy:', error); callback(error) })
+			.catch(error => ((error as NodeJS.ErrnoException).code === 'ENOENT')
+				? callback()
+				: callback(new Error('Unable to revoke the session'))
+			)
 	}
 
 }

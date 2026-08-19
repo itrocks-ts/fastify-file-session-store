@@ -42,7 +42,8 @@
 		"url": "git+https://github.com/itrocks-ts/fastify-file-session-store.git"
 	},
 	"scripts": {
-		"build": "tsc"
+		"build": "tsc",
+		"test": "npm run build && node --test --test-isolation=none test/*.test.js"
 	},
 	"version": "0.1.1"
 }
