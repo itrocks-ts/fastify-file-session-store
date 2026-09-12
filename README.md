@@ -30,6 +30,11 @@ session as a JSON file on disk. It is intended for simple Fastify
 applications, where lightweight session persistence is enough and you do not
 want to set up a dedicated database.
 
+It also implements the transport-neutral
+[`@itrocks/session`](https://github.com/itrocks-ts/session) store contract so
+applications can list and revoke authenticated sessions without depending on
+Fastify.
+
 ### Minimal example
 
 ```ts
@@ -178,6 +183,17 @@ Removes the corresponding session from memory and from disk.
 
 This method is typically called when a user logs out or when the session
 expires.
+
+#### `list(): Promise<StoredSession[]>`
+
+Returns every readable stored session with its identifier and file modification
+date. Invalid files and files removed concurrently are ignored. A missing
+session directory produces an empty list.
+
+#### `revoke(sessionId: string): Promise<void>`
+
+Removes a session from memory and disk. Revocation is idempotent: an already
+absent session is treated as successfully revoked.
 
 ## Typical use cases
 

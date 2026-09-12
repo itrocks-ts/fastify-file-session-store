@@ -19,8 +19,7 @@ function set(store, sessionId, session)
 
 describe('FileStore', () => {
 	it('creates private storage and revokes sessions idempotently', async () => {
-		const parent    = await mkdtemp(join(tmpdir(), 'itrocks-session-'))
-		const directory = join(parent, 'sessions')
+		const directory = join(await mkdtemp(join(tmpdir(), 'itrocks-session-')), 'sessions')
 		const store     = new FileStore(directory)
 
 		await set(store, 'secret-session-id', { user: { id: 42 } })
@@ -31,5 +30,21 @@ describe('FileStore', () => {
 
 		await destroy(store, 'secret-session-id')
 		await destroy(store, 'secret-session-id')
+	})
+
+	it('lists stored sessions for transport-neutral management', async () => {
+		const directory = join(await mkdtemp(join(tmpdir(), 'itrocks-session-')), 'sessions')
+		const store     = new FileStore(directory)
+
+		await set(store, 'first-session', { user: { id: 42 } })
+		await set(store, 'second-session', { user: { id: 84 } })
+
+		const sessions = await store.list()
+		assert.deepEqual(sessions.map(session => session.id).sort(), ['first-session', 'second-session'])
+		assert.deepEqual(sessions.find(session => session.id === 'first-session').data, { user: { id: 42 } })
+		assert.equal(sessions.every(session => session.updatedAt instanceof Date), true)
+
+		await store.revoke('first-session')
+		assert.deepEqual((await store.list()).map(session => session.id), ['second-session'])
 	})
 })
