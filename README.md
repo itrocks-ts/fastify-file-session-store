@@ -124,8 +124,7 @@ Implementation of `SessionStore` (the `@fastify/session` interface) that saves
 sessions into individual JSON files.
 
 Each session id corresponds to a file in the directory provided to the
-constructor. An in-memory cache is used to avoid unnecessary disk access when
-the session has not changed.
+constructor. Reads return detached snapshots. Per-session locks coordinate authoritative reads, writes and revocation.
 
 #### `new FileStore(directory: string)`
 
@@ -151,9 +150,8 @@ Method called by `@fastify/session` when a session must be stored.
 - `callback(error?)`: function to call once the write is finished or in case
   of error.
 
-The store serializes the session to JSON and writes it to a file. If the
-content has not changed since the last write, the file is not rewritten and
-the callback is called immediately.
+The store merges changes made since this request loaded its snapshot, then atomically replaces the JSON file.
+The callback runs only after persistence succeeds. Nested mutations are detected without retaining live cache objects.
 
 #### `get(sessionId: string, callback: (error: any, session?: Session | null) => void): void`
 
@@ -169,13 +167,12 @@ Method called by `@fastify/session` to load an existing session.
 The store reads the corresponding session file, parses it as JSON and returns
 the session.
 
-If a read or parse error occurs, no exception is thrown: the callback is
-called with `error` set to `null` and without a session, which
-`@fastify/session` interprets as "no session".
+Missing or expired files return no session. Other read/parse failures reach the callback as errors; corrupt or
+unavailable storage is never treated as permission to recreate a missing generation.
 
 #### `destroy(sessionId: string, callback: (error?: any) => void): void`
 
-Removes the corresponding session from memory and from disk.
+Removes the corresponding session from disk under the same lock as writes.
 
 - `sessionId`: identifier of the session to destroy.
 - `callback(error?)`: function called after the deletion, or with an error if
@@ -208,3 +205,21 @@ absent session is treated as successfully revoked.
 - **Session debugging**: because sessions are stored as JSON files, you can
   open the file corresponding to a given `sessionId` to inspect or debug the
   session state.
+
+## Transactions and generation checks
+
+`transact<T>(sessionId, session, operation): Promise<T>` reloads the authoritative snapshot under a session-wide lock,
+merges only the request's changes, invokes `operation(data)`, then atomically persists the result before
+acknowledging it.
+An operation that throws commits nothing. File failures leave the previous snapshot intact and release coordination.
+`refresh(sessionId, session)` reloads a live request session; it rejects a missing, revoked or expired generation.
+`SessionExpiredError` carries code `SESSION_STALE` for these rejections.
+
+Generation metadata is reserved internally. Session management `list()` exposes business data without that marker.
+Snapshots are detached, scoped to the store instance and attached to request leases using weak references.
+The lock registry contains coordination promises only and removes completed entries. All `set`, `transact`, `refresh`,
+`get`, `revoke` and `destroy` operations share it. Absolute expiry is checked again before a transaction commits.
+Session file replacement is atomic within the same directory; directories/files use modes 0700/0600.
+
+This contract supports one store instance per session directory in a single server process. It does not provide
+cross-process locking. Separate directory instances remain isolated; a new instance can read durable files on restart.

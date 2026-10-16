@@ -26,7 +26,7 @@ describe('FileStore', () => {
 
 		assert.equal((await stat(directory)).mode & 0o777, 0o700)
 		assert.equal((await stat(join(directory, 'secret-session-id'))).mode & 0o777, 0o600)
-		assert.deepEqual(JSON.parse(await readFile(join(directory, 'secret-session-id'), 'utf8')), { user: { id: 42 } })
+		assert.deepEqual(JSON.parse(await readFile(join(directory, 'secret-session-id'), 'utf8')).user, { id: 42 })
 
 		await destroy(store, 'secret-session-id')
 		await destroy(store, 'secret-session-id')
