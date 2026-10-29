@@ -153,6 +153,19 @@ Method called by `@fastify/session` when a session must be stored.
 The store merges changes made since this request loaded its snapshot, then atomically replaces the JSON file.
 The callback runs only after persistence succeeds. Nested mutations are detected without retaining live cache objects.
 
+#### `compareAndSet(sessionId, expectedGeneration, session, callback): void`
+
+Implements the generation-checked write required by `@fastify/session` 11.1.6. The callback receives `ENOENT` when the
+stored session is missing, expired, revoked or belongs to a different generation. Other storage errors are preserved.
+Generation checks and persistence share the same per-session lock as transactions and revocation; acknowledgement
+follows the atomic file replacement.
+
+Saves of the same generation merge request changes. Regeneration replaces the business state and invalidates previous
+request leases while retaining Fastify's stable storage identifier. Legacy files without Fastify generation metadata
+use their storage identifier as the expected generation, allowing existing cookies to be upgraded.
+Fastify's immutable session metadata is retained without assigning to its read-only property and is excluded from
+business snapshots and session management listings. The store also supports `@fastify/session` 11.1.4.
+
 #### `get(sessionId: string, callback: (error: any, session?: Session | null) => void): void`
 
 Method called by `@fastify/session` to load an existing session.
@@ -217,9 +230,13 @@ An operation that throws commits nothing. File failures leave the previous snaps
 
 Generation metadata is reserved internally. Session management `list()` exposes business data without that marker.
 Snapshots are detached, scoped to the store instance and attached to request leases using weak references.
-The lock registry contains coordination promises only and removes completed entries. All `set`, `transact`, `refresh`,
+The lock registry contains coordination promises only and removes completed entries. All `set`, `compareAndSet`,
+`transact`, `refresh`,
 `get`, `revoke` and `destroy` operations share it. Absolute expiry is checked again before a transaction commits.
 Session file replacement is atomic within the same directory; directories/files use modes 0700/0600.
 
 This contract supports one store instance per session directory in a single server process. It does not provide
 cross-process locking. Separate directory instances remain isolated; a new instance can read durable files on restart.
+
+`npm test` exercises the store and the installed Fastify session plugin. Set `FASTIFY_SESSION_MODULE` to another installed
+`@fastify/session` package directory to run the HTTP contract against that version without replacing application packages.

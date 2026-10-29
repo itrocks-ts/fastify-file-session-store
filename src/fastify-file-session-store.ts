@@ -14,11 +14,14 @@ import { writeFile }                              from 'node:fs/promises'
 
 type Data = Record<string, any>
 type Lease = { base: Data; generation: string }
+const fastifyMarker = '__fastifySessionMetadata'
 const marker = '__itrocksSessionGeneration'
 
 function snapshot(session: Data): Data
 {
-	return JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(session).filter(([key]) => key !== marker))))
+	return JSON.parse(JSON.stringify(Object.fromEntries(
+		Object.entries(session).filter(([key]) => key !== marker && key !== fastifyMarker)
+	)))
 }
 
 // Apply only changes made by this request; unrelated concurrent namespaces survive autosave.
@@ -64,6 +67,16 @@ export class FileStore implements ManageableSessionStore, SessionStore
 
 	constructor(public directory: string)
 	{
+	}
+
+	compareAndSet(sessionId: string, expectedGeneration: string, session: Session, callback: (error?: any) => void): void
+	{
+		this.write(sessionId, session, () => {}, { generation: expectedGeneration }).then(() => callback(), error => {
+			if (error instanceof SessionExpiredError) {
+				error = Object.assign(new Error('The session does not exist or has changed'), { code: 'ENOENT' })
+			}
+			callback(error)
+		})
 	}
 
 	destroy(sessionId: string, callback: (error?: any) => void): void
@@ -158,7 +171,8 @@ export class FileStore implements ManageableSessionStore, SessionStore
 			const lease = this.leases.get(session[marker])
 			const stored = await this.read(sessionId)
 			if (!lease || !stored || stored[marker]?.generation !== lease.generation) throw new SessionExpiredError()
-			for (const key of Object.keys(session)) if (key !== 'cookie' && key !== marker) delete session[key]
+			for (const key of Object.keys(session))
+				if (key !== 'cookie' && key !== marker && key !== fastifyMarker) delete session[key]
 			for (const [key, value] of Object.entries(snapshot(stored))) if (key !== 'cookie') session[key] = value
 			this.attach(session, lease.generation, snapshot(stored))
 		})
@@ -184,27 +198,46 @@ export class FileStore implements ManageableSessionStore, SessionStore
 
 	async transact<T>(sessionId: string, session: Data, operation: (data: Data) => T | Promise<T>): Promise<T>
 	{
+		return this.write(sessionId, session, operation)
+	}
+
+	private async write<T>(
+		sessionId: string, session: Data, operation: (data: Data) => T | Promise<T>, expected?: { generation: string }
+	): Promise<T>
+	{
 		// Capture synchronously: callers cannot change a pending write through a retained nested reference.
 		const local = snapshot(session)
+		const fastifyGeneration = session[fastifyMarker]?.generation
 		const initialToken = session[marker]
 		const baseline = this.leases.get(initialToken)?.base ?? {}
 		return this.lock(sessionId, async () => {
 			const token = session[marker]
 			const lease = token && this.leases.get(token)
 			const stored = await this.read(sessionId)
+			const previousGeneration = stored?.[fastifyMarker]?.generation ?? sessionId
+			if (expected && (!stored || previousGeneration !== expected.generation)) throw new SessionExpiredError()
 			if (token && (!lease || !stored || stored[marker]?.generation !== lease.generation))
 				throw new SessionExpiredError()
-			if (!token && stored) throw new SessionExpiredError()
-			const generation = lease?.generation ?? randomUUID()
-			const data = lease ? merge(baseline, local, snapshot(stored!)) : local
+			if (!token && stored && !expected) throw new SessionExpiredError()
+			const nextGeneration = fastifyGeneration ?? stored?.[fastifyMarker]?.generation
+			const rotating = expected && nextGeneration !== previousGeneration
+			const generation = rotating ? randomUUID() : (lease?.generation ?? stored?.[marker]?.generation ?? randomUUID())
+			const data = lease && !rotating ? merge(baseline, local, snapshot(stored!)) : structuredClone(local)
 			const result = await operation(data)
 			// An operation may cross the absolute expiry while holding the lock.
 			if (stored?.cookie?.expires && Date.parse(stored.cookie.expires) <= Date.now())
 				throw new SessionExpiredError()
-			await this.persist(sessionId, { ...data, [marker]: { generation } })
+			delete data[fastifyMarker]
+			delete data[marker]
+			await this.persist(sessionId, {
+				...data,
+				...(nextGeneration === undefined ? {} : { [fastifyMarker]: { generation: nextGeneration } }),
+				[marker]: { generation }
+			})
 			// Keep framework session methods/cookie instances intact. Merge edits made during the await.
 			const updated = merge(local, snapshot(session), data)
-			for (const key of Object.keys(session)) if (key !== 'cookie' && key !== marker) delete session[key]
+			for (const key of Object.keys(session))
+				if (key !== 'cookie' && key !== marker && key !== fastifyMarker) delete session[key]
 			for (const [key, value] of Object.entries(updated)) if (key !== 'cookie') session[key] = value
 			this.attach(session, generation, data)
 			return result
